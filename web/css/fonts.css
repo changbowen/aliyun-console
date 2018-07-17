@@ -1,0 +1,26 @@
+@font-face {
+    font-family: "Titillium Web";
+    src: url('fonts/Titillium_Web/TitilliumWeb-SemiBold.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: "Ubuntu Mono";
+    src: url('fonts/Ubuntu_Mono/UbuntuMono-Regular.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: "Ubuntu Condensed";
+    src: url('fonts/Ubuntu_Condensed/UbuntuCondensed-Regular.ttf') format('truetype');
+}
+
+td {
+    font-family: "Ubuntu Mono", "Microsoft YaHei", "微软雅黑", STXihei, "华文细黑", monospace;
+}
+
+h1, h2, h3, h4, h5, h6, th {
+    font-family: "Titillium Web", "Microsoft YaHei", "微软雅黑", STXihei, "华文细黑", sans-serif;
+}
+
+body, input, select {
+    font-family: "Ubuntu Condensed", "Microsoft Yahei", "微软雅黑", STXihei, "华文细黑", sans-serif;
+}

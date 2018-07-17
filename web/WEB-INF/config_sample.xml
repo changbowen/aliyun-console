@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ConfigRoot>
+    <AccessKeys>
+        <AccessKey Type="Readonly">
+            <ID>Key</ID>
+            <Secret>Secret</Secret>
+        </AccessKey>
+        <AccessKey Type="EcsOperator">
+            <ID>Key</ID>
+            <Secret>Secret</Secret>
+        </AccessKey>
+    </AccessKeys>
+    <Secrets>
+        <Secret>Secret</Secret>
+    </Secrets>
+</ConfigRoot>

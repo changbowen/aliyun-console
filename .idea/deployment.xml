@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" serverName="WebSrvTest">
+    <serverData>
+      <paths name="WebSrvTest">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/aliyun-console" local="$PROJECT_DIR$/out/artifacts/aliyun-console" web="/aliyun-console" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/out/artifacts/aliyun-console/cached_instances" />
+            <excludedPath local="true" path="$PROJECT_DIR$/out/artifacts/aliyun-console/cached_responses" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+    </serverData>
+  </component>
+</project>

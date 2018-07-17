@@ -1,0 +1,429 @@
+<style>
+    tag-box {
+        display: flex;
+        flex-wrap: wrap;
+        margin-top: 0.3em;
+        margin-left: 0.3em;
+    }
+
+
+    tag {
+        display: inline-block;
+        font-size: small;
+        color: white;
+        background: dimgrey;
+        border-radius: 0.3em;
+        padding: 0.3em;
+        margin-right: 0.3em;
+        margin-bottom: 0.3em;
+        transition: background-color 0.5s;
+    }
+
+
+    .group-box {
+        display: flex;/*to get rid of margin collapsing*/
+        flex-direction: column;
+        background: rgba(255,255,255,0.4);
+        border-radius: 0.3em;
+        padding: 0.3em;
+        margin: 0.3em;
+    }
+    .group-box::before {
+        display: block;
+        content: attr(title);
+        opacity: 0.6;
+        text-align: center;
+    }
+
+
+    .margin-s, p {
+        margin: 0.2em 0.3em;
+    }
+
+
+    .expand {
+        font-weight: bold;
+    }
+    .expand::after {
+        display: inline;
+        font-weight: normal;
+        margin-left: 0.3em;
+    }
+    .expand:not([data-itemCount='0']) {
+        cursor: pointer;
+    }
+    .expand[data-itemCount='0']::after {
+        content: '(0)';
+    }
+    .expand:not([data-itemCount='0'])::after {
+        content: '(' attr(data-itemCount) ')...';
+    }
+
+
+    .expand-list {
+        display: none;/*to avoid flashing of the content right before accordion is initialized*/
+        margin-left: 1em;
+        overflow: hidden;/*to avoid shattering in jquery accordion expand animation*/
+        white-space: nowrap;
+    }
+
+    /*    .margin-s, p {
+            margin: 0.3em;
+        }*/
+
+
+</style>
+
+<script>
+    function applyAccordion(/**HTMLElement*/panelElement) {
+        $('.jquery-accordion', panelElement).accordion({
+            active: false,
+            collapsible: true,
+            heightStyle: "content",
+            animate: false,
+            activate: function( event, ui ) {
+                if (ui.newPanel.length > 0) {
+                    let panel = ui.newPanel[0];
+                    $(panel).hide();//to reverse the toggle below
+                    $(panel).animate(
+                        { width: 'toggle', height: 'toggle', opacity: 'toggle', padding: 'toggle' },
+                        { duration: 500 });
+                }
+                if (ui.oldPanel.length > 0) {
+                    let panel = ui.oldPanel[0];
+                    $(panel).show();
+                    $(panel).animate(
+                        { width: 'toggle', height: 'toggle', opacity: 'toggle', padding: 'toggle' },
+                        { duration: 500 });
+                }
+            }
+        });
+    }
+
+    function updateExpand(/**HTMLElement*/panelElement) {
+        $('.expand-list', panelElement).each((i, /**HTMLElement*/eleList) => {
+            if (eleList.childElementCount === 1 && eleList.children[0].classList.contains('jquery-accordion')) {
+                //is a nested list, get nested children count
+                eleList.previousElementSibling.setAttribute('data-itemCount', eleList.children[0].querySelectorAll('.expand').length.toString());
+            }
+            else
+                eleList.previousElementSibling.setAttribute('data-itemCount', eleList.childElementCount.toString());
+        });
+    }
+
+
+    function updatePanel_OsImg(/**HTMLElement*/panelElement, /**string*/oSType) {
+        try {
+            let osImg_img = panelElement.querySelector('#osImg_img');
+            switch (oSType.toLowerCase()) {
+                case 'linux':
+                    osImg_img.src = 'images/linux_panel.png';
+                    break;
+                case 'windows':
+                    osImg_img.src = 'images/windows_panel.png';
+                    break;
+                case 'mysql':
+                    osImg_img.src = 'images/mysql_panel.png';
+                    break;
+                default:
+                    osImg_img.src = 'images/question.png';
+                    osImg_img.style.opacity = 0.8;
+                    break;
+            }
+        }
+        catch (ex) {}
+    }
+
+
+    function fillEcsPanelData(/**ECS*/ecs, /**Array*/ecsDisks, /**Map*/allSG, /**HTMLElement*/panelElement) {
+        //set instanceId
+        panelElement.setAttribute('data-InstId', ecs.instanceId);
+
+        //set os icon image src
+        updatePanel_OsImg(panelElement, ecs.oSType);
+
+        //set config button action
+        try {
+            panelElement.querySelector('#config_button_img').onclick= function() {
+                window.open(`https://ecs.console.aliyun.com/#/server/${ecs.instanceId}/detail`);
+            };
+        }
+        catch (ex) {}
+
+        //set instance name and id
+        try {
+            panelElement.querySelector('#instName_strong').innerText = ecs.instanceName.toUpperCase();
+            panelElement.querySelector('#instId_p').innerText = ecs.instanceId;
+        }
+        catch (ex) {}
+
+        //set status (in the form of tag) and power button
+        try { updateStatus(panelElement, ecs.status); } catch (ex) {}
+
+        //set tags: tags
+        try {
+            let tags_tagBox = panelElement.querySelector('#tags_tag-box');
+            for (let tag of ecs.tags) {
+                let tagele = document.createElement('tag');
+                tagele.innerText = tag.tagValue;
+                tags_tagBox.appendChild(tagele);
+            }
+        }
+        catch (ex) {}
+
+        //set configuration
+        try {
+            panelElement.querySelector('#instType_span').innerText = ecs.instanceType;
+            panelElement.querySelector('#cpu_span').innerText = ecs.cpu;
+            panelElement.querySelector('#memory_span').innerText = ecs.memory / 1024 + ' GB';
+            let sysDisk_div = panelElement.querySelector('#sysDisk_div');
+            let dataDisk_div = panelElement.querySelector('#dataDisk_div');
+            let sysDiskDiv = null, dataDiskDiv = null;
+            for (let disk of ecsDisks) {
+                let htmlstr = `
+<p class="expand">${disk.device}, ${disk.size} GB</p>
+<div class="expand-list">
+    <p><strong>Disk ID: </strong><span>${disk.diskId}</span></p>
+    ${disk.diskName ? '<p><strong>Disk Name: </strong><span>' + disk.diskName + '</span></p>' : ''}
+    ${disk.description ? '<p><strong>Description: </strong><span>' + disk.description + '</span></p>' : ''}
+    ${disk.imageId ? '<p><strong>Image: </strong><span>' + disk.imageId + '</span></p>' : ''}
+    <p><strong>Size: </strong><span>${disk.size} GB</span></p>
+    <p><strong>Category: </strong><span>${disk.category.replace('_', ' ').toUpperCase()}</span></p>
+    <p><strong>Creation Time: </strong><span>${disk.creationTime}</span></p>
+    <p><strong>Attached Time: </strong><span>${disk.attachedTime}</span></p>
+</div>`;
+                let diskItems = parseHTMLElement(htmlstr);
+                switch (disk.type) {
+                    case 'system':
+                        if (sysDiskDiv == null) sysDiskDiv = createElement('div', {'class': 'jquery-accordion'});
+                        sysDiskDiv.append(...diskItems);
+                        break;
+                    case 'data':
+                        if (dataDiskDiv == null) dataDiskDiv = createElement('div', {'class': 'jquery-accordion'});
+                        dataDiskDiv.append(...diskItems);
+                        break;
+                }
+            }
+            if (sysDiskDiv != null) sysDisk_div.appendChild(sysDiskDiv);
+            if (dataDiskDiv != null) dataDisk_div.appendChild(dataDiskDiv);
+        } catch (ex) {}
+
+        //set network info and ip addresses
+        try {
+            let vpcName_a = panelElement.querySelector('#vpcName_a');
+            let vswName_a = panelElement.querySelector('#vswName_a');
+            let vsw = allVsw.get(ecs.vpcAttributes.vSwitchId);
+            vswName_a.innerText = vsw.vSwitchName;
+            vswName_a.href = `https://vpcnext.console.aliyun.com/vpc/${ecs.regionId}/switches?VSwitchId=${vsw.vSwitchId}`;
+            vpcName_a.innerText = allVpc.get(vsw.vpcId).vpcName;
+            vpcName_a.href = `https://vpcnext.console.aliyun.com/vpc/${ecs.regionId}/vpcs?VpcId=${vsw.vpcId}`;
+            panelElement.querySelector('#ipAddr_div').append(...parseEcsIpAddrs(ecs, 'template', 'p').childNodes);
+        } catch (ex) {}
+
+        //set timestamps
+        try {
+            panelElement.querySelector('#createTime_span').innerText = ecs.creationTime;
+            if (ecs.instanceChargeType === 'PrePaid') panelElement.querySelector('#expireTime_span').innerText = ecs.expiredTime;
+            panelElement.querySelector('#startTime_span').innerText = ecs.startTime;
+        } catch (ex) {}
+
+        //set security groups
+        try {
+            let secGroups_div = panelElement.querySelector('#secGroups_div');
+            for (let sgId of ecs.securityGroupIds) {
+                let sg = allSG.get(sgId);
+                let ecsInSg = [...allEcs.values()].filter(ecs=>ecs.securityGroupIds.includes(sgId));
+                let htmlstr = `
+<p class="expand" data-sgId="${sgId}">${sg.securityGroupName}</p>
+<div class="expand-list">
+${ecsInSg.map(ecs=>'<p>' + ecs.instanceName + '</p>').join('\n')}
+</div>`;
+                secGroups_div.append(...parseHTMLElement(htmlstr));
+            }
+        } catch (ex) {}
+
+        //set billing
+        try { panelElement.querySelector('#chargeType_span').innerText = ecs.instanceChargeType; } catch (ex) {}
+    }
+
+    function fillRdsPanelData(/**RDS*/rds, /**HTMLElement*/panelElement) {
+        //set instanceId
+        panelElement.setAttribute('data-InstId', rds.dBInstanceId);
+        //set os icon image src
+        updatePanel_OsImg(panelElement, rds.engine);
+        //set config button action
+        try {
+            panelElement.querySelector('#config_button_img').onclick= function() {
+                window.open(`https://rdsnew.console.aliyun.com/#/detail/${rds.dBInstanceId}/basicInfo`);
+            };
+        }
+        catch (ex) {}
+        //set instance name and id
+        try {
+            panelElement.querySelector('#instName_strong').innerText = rds.dBInstanceDescription.toUpperCase();
+            panelElement.querySelector('#instId_p').innerText = rds.dBInstanceId;
+        }
+        catch (ex) {}
+        //set status (in the form of tag) and power button
+        try { updateStatus(panelElement, rds.dBInstanceStatus); } catch (ex) {}
+        //set configuration
+        try {
+            panelElement.querySelector('#instType_span').innerText = rds.dBInstanceType;
+
+
+
+        } catch (ex) {}
+    }
+
+    function updateStatus(/**HTMLElement*/panel, /**string*/status) {
+        let status_tag = panel.querySelector('#status_tag');
+        let power_btn = panel.querySelector('#power_button_img');
+        let statusColor = getStatusColor(status);
+        status_tag.innerText = status;
+        status_tag.style.background = statusColor;
+        statusColor = $.Color(statusColor);
+        panel.style.backgroundColor =
+            statusColor.saturation() === 0 ?
+            statusColor.lightness(0.4).toHexString() :
+            statusColor.lightness(0.4).saturation(0.4).toHexString();//set saturation when saturation is 0 will produce a red color
+        switch (status) {
+            case 'Running':
+                power_btn.src = 'images/power-button-red.png';
+                power_btn.setAttribute('data-fnName', 'InstanceStop');
+                break;
+            case 'Stopped':
+                power_btn.src = 'images/power-button-green.png';
+                power_btn.setAttribute('data-fnName', 'InstanceStart');
+                break;
+        }
+    }
+
+    /**
+     * @param {HTMLImageElement} btn
+     * @param {string} instanceId
+     */
+    function power_button_click(btn, instanceId) {
+        let fnname = btn.getAttribute('data-fnName');
+        let ecs = allEcs.get(instanceId);
+        let panelElement = btn.getParentByClass('ecs-panel');
+
+        if (!confirm(`Are you sure you want to perform the following operations?\r\n${fnname}: ${ecs.instanceName}`)) return;
+        btn.classList.add('disabled');
+
+        //try to refresh status on panel
+        $.ajax({
+            type: 'POST',
+            url: 'AliyunApiServlet',
+            dataType: 'json',
+            data:
+                {
+                    funcName: fnname,
+                    args: JSON.stringify([
+                        document.getElementById('target_region').value,
+                        instanceId,
+                    ])
+                },
+            success: function (resp_pwr) {
+                if (resp_pwr.error) {
+                    btn.classList.remove('disabled');
+                    alert(`Operation failed.\r\n${resp_pwr.error}`);
+                }
+                else {
+                    // alert('Operation completed successfully. It may take a while.');
+                    // let running = true;
+                    let count = 0;
+                    let intervalId = setInterval(() => {
+                        count++;
+                        try {
+                            if (count > 9) throw new Error('The instance took too long to respond to the action.');
+                            let ecsNew = getInstances(ecs.regionId, 'Ecs', {'InstanceIds': '["' + ecs.instanceId + '"]'}, false)[0];
+                            if (ecsNew == null) throw new Error('Error getting the new instance.');
+                            else {
+                                updateStatus(panelElement, ecsNew.status);
+                                if ((ecs.status === 'Running' && ecsNew.status === 'Stopped') ||
+                                    (ecs.status === 'Stopped' && ecsNew.status === 'Running')) {
+                                    ecs = ecsNew;
+                                    allEcs.set(instanceId, ecs);//very important if you dont want to refresh the page
+                                    let tooltip = $('.tooltip[data-InstId="'+instanceId+'"]')[0];
+                                    if (tooltip) tooltip.style.background = getStatusColor(ecsNew.status);
+                                    clearInterval(intervalId);
+                                    btn.classList.remove('disabled');
+                                }
+                            }
+                        }
+                        catch (ex) {
+                            alert('Error refreshing the status. Please try a manual refresh.\r\n' + ex.message);
+                            clearInterval(intervalId);
+                        }
+                    }, 5000);
+                }
+            },
+            error: function (xhr) {
+                btn.classList.remove('disabled');
+                alert(`Operation failed (${xhr.status}).`);
+            }
+        });
+    }
+</script>
+
+<div class="ecs-panel"
+     style="width: fit-content; border-radius: 0.3em; padding: 0.3em; box-shadow: 0 0.1em 0.5em dimgrey;
+     background-image: linear-gradient(#ffffffc4, transparent); background-color: lightskyblue; color: black;
+     transition: background-color 1s;">
+    <div style="display: flex">
+        <img id="osImg_img" src="images/could-server.png"
+             style="margin: 0.3em; filter: drop-shadow(0 0.2em 0.2em dimgrey); width: 64px; height: 64px; align-self: center">
+        <div>
+            <p><strong id="instName_strong">-</strong></p>
+            <p style="font-size: small; opacity: 0.5" id="instId_p">-</p>
+            <tag-box id="tags_tag-box">
+                <tag id="status_tag">Unknown</tag>
+                <!--<tag>Application</tag><tag>Security</tag><tag>WCS</tag><tag>Connesso</tag>-->
+            </tag-box>
+        </div>
+        <div style="margin-left: auto; display: flex; flex-direction: column;">
+            <img id="power_button_img" class="button round-button" src="images/power-button-red.png"
+                 style="width: 32px; height: 32px; margin: 2px;"
+                 onclick="power_button_click(this, this.getParentByClass('ecs-panel').getAttribute('data-InstId'))">
+            <img id="config_button_img" class="button round-button" src="images/menu.png"
+                 style="width: 32px; height: 32px; margin: 2px; opacity: 0.8;">
+        </div>
+    </div>
+    <hr style="display: block; margin: 0.3em;">
+    <div style="display: flex; font-size: small;">
+        <div style="flex-grow: 1">
+            <div class="group-box" title="CONFIGURATION">
+                <p><strong>Instance Type: </strong><span id="instType_span">-</span></p>
+                <p><strong>CPU Cores: </strong><span id="cpu_span">-</span></p>
+                <p><strong>Memory: </strong><span id="memory_span">-</span></p>
+                <div class="jquery-accordion">
+                    <p class="expand">System Disks:</p>
+                    <div class="expand-list" id="sysDisk_div"></div>
+                </div>
+                <div class="jquery-accordion">
+                    <p class="expand">Data Disks:</p>
+                    <div class="expand-list" id="dataDisk_div"></div>
+                </div>
+            </div>
+            <div class="group-box" title="NETWORK">
+                <p><strong>VPC: </strong><a id="vpcName_a" target="_blank">-</a></p>
+                <p><strong>vSwitch: </strong><a id="vswName_a" target="_blank">-</a></p>
+                <p><strong>IP Addresses:</strong></p>
+                <div id="ipAddr_div" style="margin-left: 1em;"></div>
+            </div>
+        </div>
+        <div style="flex-grow: 1; margin-left:-0.3em;">
+            <div class="group-box" title="TIMESTAMPS">
+                <p><strong>Creation: </strong><span id="createTime_span">-</span></p>
+                <p><strong>Expiration: </strong><span id="expireTime_span">-</span></p>
+                <p><strong>Start: </strong><span id="startTime_span">-</span></p>
+            </div>
+            <div class="group-box" title="SECURITY GROUPS">
+                <div class="jquery-accordion margin-s" id="secGroups_div"></div>
+            </div>
+            <div class="group-box" id="billing-gb" title="BILLING">
+                <p><strong>Charge Type: </strong><span id="chargeType_span">-</span></p>
+            </div>
+        </div>
+    </div>
+</div>

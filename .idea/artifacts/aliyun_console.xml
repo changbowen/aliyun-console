@@ -1,0 +1,17 @@
+<component name="ArtifactManager">
+  <artifact type="exploded-war" name="aliyun-console">
+    <output-path>$PROJECT_DIR$/out/artifacts/aliyun-console</output-path>
+    <root id="root">
+      <element id="directory" name="WEB-INF">
+        <element id="directory" name="classes">
+          <element id="module-output" name="aliyun-console-java" />
+        </element>
+        <element id="directory" name="lib">
+          <element id="library" level="project" name="Aliyun Java SDK" />
+          <element id="library" level="project" name="Kyro Java SDK" />
+        </element>
+      </element>
+      <element id="javaee-facet-resources" facet="aliyun-console-java/web/Web" />
+    </root>
+  </artifact>
+</component>

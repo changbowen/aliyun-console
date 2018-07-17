@@ -1,0 +1,64 @@
+<style>
+    .inst-box {
+        width: initial;
+        color: whitesmoke;
+        background-color: gray;
+        background-repeat: no-repeat;
+        background-position: 90%, 120%, 99% 0;
+        background-size: auto 150%, 13%, 100%;
+        background-blend-mode: overlay, normal, normal;
+        border: 0;
+        border-radius: 5px;
+        padding: 6px;
+        margin: 5px;
+        font-size: 10pt;
+        transition: opacity 0.3s, background 0.3s, transform 0.3s, text-shadow 0.3s;
+        box-shadow: 0px 2px 5px dimgrey;
+        cursor: pointer;
+    }
+
+    .inst-box:hover {
+        transform: scale(1.1);
+        text-shadow: 0 0 4px black;
+        background-position: 70%, 96%, 100% 0;
+        background-size: auto 90%, 13%, 400%;
+    }
+</style>
+
+<script>
+    /**
+     * Use this when the instance is an ECS.
+     * @param ecs
+     * @param {HTMLElement} boxElement
+     */
+    function fillEcsBoxData(ecs, boxElement) {
+        boxElement.setAttribute('data-InstCat', 'ecs');
+        boxElement.setAttribute('data-InstId', ecs.instanceId);
+        boxElement.style.backgroundColor = getStatusColor(ecs.status);
+        boxElement.style.backgroundImage = getBackImage(ecs.oSType, ecs.instanceChargeType);
+        boxElement.querySelector('#instBox_instName').innerText = ecs.instanceName;
+        boxElement.querySelector('#instBox_instType').innerText = ecs.instanceType;
+        let ipUl = parseEcsIpAddrs(ecs);
+        ipUl.classList.add('margin-s');
+        boxElement.appendChild(ipUl);
+    }
+
+    /**
+     * Use this when the instance is an RDS.
+     * @param rds
+     * @param {HTMLElement} boxElement
+     */
+    function fillRdsBoxData(rds, boxElement) {
+        boxElement.setAttribute('data-InstCat', 'rds');
+        boxElement.setAttribute('data-InstId', rds.dBInstanceId);
+        boxElement.style.backgroundColor = getStatusColor(rds.dBInstanceStatus);
+        boxElement.style.backgroundImage = getBackImage(rds.engine, rds.payType);
+        boxElement.querySelector('#instBox_instName').innerText = rds.dBInstanceDescription;
+        boxElement.querySelector('#instBox_instType').innerText = rds.dBInstanceClass;
+    }
+</script>
+
+<div class="inst-box">
+    <p><strong id="instBox_instName"></strong></p>
+    <p id="instBox_instType" style="opacity: 0.8; font-size: smaller;"></p>
+</div>
