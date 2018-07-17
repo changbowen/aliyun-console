@@ -87,9 +87,9 @@
             //add back button
             addHomeButton();
             //update select from cookies
-            loadCookies(['target_region', 'search_cs']);
+            loadCookies(['target_region']);
             //initialize dataTable
-            initDataTables('.dataTable', true);
+            initDataTables('.dataTable', 0);
             //set column group based on first row's rowspan settings
             let /**HTMLElement*/firstRow = $('.dataTable thead tr:nth-child(1)')[0];//vpc row
             let /**HTMLElement*/secondRow = $('.dataTable thead tr:nth-child(2)')[0];//zone row
@@ -120,7 +120,6 @@
         <option value="cn-hongkong">Hong Kong</option>
     </select>
     <input type="checkbox" name="refresh_cache" id="refresh_cache">Ignore Cache (Slow)
-    <input type="checkbox" name="search_cs" id="search_cs">Case Sensitive Search
     <input type="submit" id="btn_submit" value="Go" onclick="btn_submit_onclick()"/>
 </form>
 

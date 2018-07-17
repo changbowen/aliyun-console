@@ -1,6 +1,6 @@
 function btn_submit_onclick() {
     document.getElementById('btn_submit').value = 'Wait...';
-    saveCookies(['target_region', 'price_multi', 'search_cs', 'refresh_cache'])
+    saveCookies(['target_region', 'price_multi', 'combine_row', 'refresh_cache'])
 }
 
 

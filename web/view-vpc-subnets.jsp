@@ -101,9 +101,9 @@
             //add back button
             addHomeButton();
             //update select from cookies
-            loadCookies(['target_region', 'search_cs']);
+            loadCookies(['target_region']);
             //initialize dataTable
-            initDataTables('.dataTable', false, false);
+            initDataTables('.dataTable', null, null);
         });
     </script>
 </head>
@@ -116,7 +116,6 @@
         <option value="cn-hongkong">Hong Kong</option>
     </select>
     <input type="checkbox" name="refresh_cache" id="refresh_cache">Ignore Cache (Slow)
-    <input type="checkbox" name="search_cs" id="search_cs">Case Sensitive Search
     <input type="submit" id="btn_submit" value="Go" onclick="btn_submit_onclick()"/>
 </form>
 

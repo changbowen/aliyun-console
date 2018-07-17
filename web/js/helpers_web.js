@@ -135,24 +135,32 @@ function saveCookies(IDs) {
 function loadCookies(IDs) {
     let ele;
     for (let id of IDs) {
+        let val = $.cookie(id);
+        if (val == null) continue;
         ele = document.getElementById(id);
         if (ele == null) continue;
         switch (ele.type) {
             case 'checkbox':
-                ele.checked = ($.cookie(id) === 'true');//$.cookie() returns a string
+                ele.checked = (val === 'true');//$.cookie() returns a string
                 break;
             default:
-                ele.value = $.cookie(id);
+                ele.value = val;
                 break;
         }
     }
 }
 
-function initDataTables(selector, combineCol = false, combineRow = false) {
+/**
+ * @param selector jQuery selector to select the DataTables wanted.
+ * @param {number | Array<number> | null} combinedCol Set to false to disable. Otherwise it is passed to update_colspan as the first parameter.
+ * @param {string | Array<string> | null} combinedRow Set to false to disable. Otherwise it is passed to update_rowspan as the first parameter.
+ */
+function initDataTables(selector, combinedCol = null, combinedRow = null) {
     //dataTable returns jquery obj and DataTable return DataTable Api obj.
     let allDT = $(selector).DataTable({
         "paging": false,
         "colReorder": true,
+        "searching": false,
     });
     if (allDT.context.length > 0) {
         try {
@@ -161,19 +169,19 @@ function initDataTables(selector, combineCol = false, combineRow = false) {
             allDT.colReorder.order(JSON.parse(colOrder));
         } catch (ex) {}
 
-        if (combineRow) {
-            update_rowspan('*');
+        if (combinedRow != null) {
+            update_rowspan(combinedRow);
             allDT.on('order', function (event, settings, details) {
-                update_rowspan('*');
+                update_rowspan(combinedRow);
             });
         }
 
-        if (combineCol) {
-            update_colspan([0]);
+        if (combinedCol != null) {
+            update_colspan(combinedCol);
             //need to use column-reorder.dt if allDT is jquery object
             allDT.on('column-reorder', function (event, settings, details) {
                 $.cookie(event.currentTarget.id + '.colReorder.order', JSON.stringify(allDT.colReorder.order()), { path: location.pathname });
-                update_colspan([0]);
+                update_colspan(combinedCol);
             });
         }
         else {
@@ -181,15 +189,12 @@ function initDataTables(selector, combineCol = false, combineRow = false) {
                 $.cookie(event.currentTarget.id + '.colReorder.order', JSON.stringify(allDT.colReorder.order()), { path: location.pathname });
             });
         }
-
-
-
     }
 }
 
 /**
  * Enable or disable the rowspan attributes on target tables.
- * @param colNames The name of the column, or array of the names of columns to apply merging.
+ * @param {string | Array<string>} colNames The name of the column, or array of the names of columns to apply merging.
  * Set to the content of the th in thead, or * to apply to all columns.
  * @param table If set to null, will target all elements with dataTable class.
  * @param {function(Node): Object} contentFn The function to get the content for comparison. By default textContent is used.
@@ -198,11 +203,7 @@ function update_rowspan(colNames, table = null, contentFn = a => a.textContent)
 {
     if (typeof colNames === "string" && colNames !== "*") colNames = [colNames];
 
-    let tablebodies = null;
-    if (table == null)
-        tablebodies = $('.dataTable tbody');
-    else
-        tablebodies = $('tbody', table);
+    let tablebodies = table == null ? $('.dataTable tbody') : $('tbody', table);
 
     tablebodies.toArray().forEach(body => {
         let head = body.previousElementSibling;
@@ -236,17 +237,17 @@ function update_rowspan(colNames, table = null, contentFn = a => a.textContent)
 
 /**
  * Enable or disable the colspan attributes on target tables.
- * @param {Array<int>} rowIndex Set to null to apply to all rows.
+ * @param {number | Array<number>} rowIndex Set to -1 to apply to all rows.
  * @param table If set to null, will target all elements with dataTable class.
  * @param {function(Node): Object} contentFn The function to get the content for comparison. By default textContent is used.
  */
 function update_colspan(rowIndex, table = null, contentFn = a => a.textContent) {
-    let rows = null;
-    if (table == null)
-        rows = $('.dataTable tr').toArray();
-    else
-        rows = $('tr', table).toArray();
-    if (rowIndex != null) rows = rowIndex.reduce((pre, cur) => {
+    if (rowIndex == null) rowIndex = [-1];
+    else if (typeof rowIndex === "number") rowIndex = [rowIndex];
+
+    let rows = table == null ? $('.dataTable tr').toArray() : $('tr', table).toArray();
+
+    if (rowIndex[0] !== -1) rows = rowIndex.reduce((pre, cur) => {
         let item = rows[cur];
         return item == null ? pre : (pre.push(item), pre);
     }, []);
@@ -357,7 +358,7 @@ function getPrice(region, targetType, targetId, callback = null) {
             }
             else {
                 result = resp.response;
-                callback(result);
+                if (callback != null) callback(result);
             }
         },
         error: function (xhr) {

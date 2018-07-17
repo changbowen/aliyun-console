@@ -43,9 +43,10 @@
             //add back button
             addHomeButton();
             //update select from cookies
-            loadCookies(['target_region', 'search_cs']);
+            loadCookies(['target_region', 'combine_row']);
             //initialize dataTable
-            initDataTables('.dataTable', false, true);
+            initDataTables('.dataTable', null, document.getElementById('combine_row').checked ?
+                ['Instance Name', 'VPC', 'vSwitch', 'Instance Type', 'Status', 'IP Addresses', 'OS', 'Charge Type'] : null);
         });
     </script>
 </head>
@@ -58,10 +59,13 @@
         <option value="cn-hongkong">Hong Kong</option>
     </select>
     <input type="checkbox" name="refresh_cache" id="refresh_cache">Ignore Cache (Slow)
-    <input type="checkbox" name="search_cs" id="search_cs">Case Sensitive Search
+    <input type="checkbox" name="combine_row" id="combine_row" checked>Combine Same Row Values
     <input type="submit" id="btn_submit" value="Go" onclick="btn_submit_onclick()"/>
     <input type="button" id="btn_export" value="Export" onclick="exportToCsv()"/>
 </form>
+
+<h3><span>Total annual cost including stopped instances: </span><span id="total_cost_annual">0</span></h3>
+<h3><span>Total annual cost excluding stopped instances: </span><span id="total_cost_annual_running">0</span></h3>
 
 <%
     String[] p_target_region = request.getParameterValues("target_region");
@@ -72,8 +76,8 @@
     function exportToCsv() {
         let csv = 'sep=;\r\n';
         csv += cols.join(';') + '\r\n';
-        rows.forEach(row => {
-            csv += row.join(';').replace('\r\n', '\n') + '\r\n';
+        Object.values(rows).forEach(row => {
+            csv += Object.values(row).join(';').replace('\r\n', '\n') + '\r\n';
         });
 
         let a = document.createElement('a');
@@ -96,8 +100,26 @@
     let /**Map<string,ECS>*/ allEcs = getInstances(region, 'Ecs', null, cache, null, 'map');
     if (allVpc.size + allVsw.size + allEcs.size === 0) throw new Error('Empty collections. Aborting.');
 
-    let cols = ['Instance ID', 'InstanceName', 'VPC', 'vSwitch', 'Instance Type', 'Status', 'IP Addresses', 'OS', 'Creation Time', 'Price'];
-    let rows = [...allEcs.values()].map((/**ECS*/ecs, i) => {
+    let cols = ['Instance ID', 'Instance Name', 'VPC', 'vSwitch', 'Instance Type', 'Status', 'IP Addresses', 'OS', 'Creation Time', 'Charge Type', 'Annual Cost'];
+    let rows = [...allEcs.values()].reduce((pre, /**ECS*/ecs) => {
+        let vpc = allVpc.get(ecs.vpcAttributes.vpcId);
+        let vsw = allVsw.get(ecs.vpcAttributes.vSwitchId);
+        pre[ecs.instanceId] = {
+            instanceId: ecs.instanceId,
+            instanceName: ecs.instanceName,
+            vpc: vpc.vpcName + ' (' + vpc.vpcId + ')',
+            vSwitch: vsw.vSwitchName + ' (' + vsw.vSwitchId + ')',
+            instanceType: ecs.instanceType,
+            status: ecs.status,
+            ipAddresses: [...parseEcsIpAddrs(ecs).children].map(li => li.textContent),
+            oSName: ecs.oSName,
+            creationTime: ecs.creationTime,
+            chargeType: ecs.instanceChargeType,
+            annualCost: '-'
+        };
+        return pre;
+    }, {});
+/*    let rows = [...allEcs.values()].map((/!**ECS*!/ecs, i) => {
         let vpc = allVpc.get(ecs.vpcAttributes.vpcId);
         let vsw = allVsw.get(ecs.vpcAttributes.vSwitchId);
         return [
@@ -112,7 +134,7 @@
             ecs.creationTime,
             '-'
         ]
-    });
+    });*/
 
     let table = d3.select('body').append('table').attr('class', 'dataTable display cell-border');
     let headerRow = table.append('thead').append('tr');
@@ -123,12 +145,47 @@
     //body rows
     let tbody = table.append('tbody');
     let bodyRows = tbody.selectAll('tr')
-        .data(rows).enter()
+        .data(Object.values(rows), row => row.instanceId).enter()
         .append('tr');
 
     bodyRows.selectAll('td')
-        .data(row => row).enter()
+        .data(row => Object.values(row)).enter()
         .append('td').text(d => d);
+
+    //will be used later
+    let totalCostAnnual = 0, totalCostAnnualRunning = 0;
+
+    for (let id in rows) {
+        if (!rows.hasOwnProperty(id)) continue;
+        let row = rows[id];
+        let price = getPrice(region, 'Ecs', row.instanceId);
+
+        for (let priceType in price) {
+            if (!price.hasOwnProperty(priceType)) continue;
+            let val = price[priceType].tradePrice;
+            switch (priceType) {
+                case 'P-A-Y-G Hourly':
+                    row.annualCost = Math.round(val * 8760 * 100) / 100;//to do rounding and get a number
+                    break;
+                case 'Renew Annual':
+                    row.annualCost = Math.round(val * 100) / 100;
+                    break;
+            }
+            if ($.isNumeric(row.annualCost)) {
+                totalCostAnnual += row.annualCost;
+                if (row.status === 'Running') totalCostAnnualRunning += row.annualCost;
+            }
+        }
+    }
+
+    let tRs = tbody.selectAll('tr').data(Object.values(rows), row => row.instanceId);
+    let tDs = tRs.selectAll('td').data(row => Object.values(row));
+    tDs.text(d => d);
+
+    //update total cost elements
+    document.getElementById('total_cost_annual').textContent = totalCostAnnual.toFixed(2);
+    document.getElementById('total_cost_annual_running').textContent = totalCostAnnualRunning.toFixed(2);
+
 </script>
 </body>
 </html>
