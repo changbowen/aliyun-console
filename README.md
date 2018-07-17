@@ -13,3 +13,7 @@ Better visualization of resources on the cloud.
 
 ### View: VPC, Subnets
 - Similar to the previous view, but without joining of the vSwitch names.
+
+### View: Resource List
+### View: Bubbles
+### View: ExpressConnect
