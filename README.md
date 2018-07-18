@@ -3,6 +3,7 @@ Better visualization of resources on the cloud.
 
 ### View: VPC, Subnets and Zones
 ![sample-vpc-subnet-zone-view](https://raw.githubusercontent.com/changbowen/Misc/master/aliyun-console/sample-vpc-subnet-zone-view.png)
+*Names and values are changed to protect the information*
 
 - Table view of instances (ECS, RDS ...) in the target region.
 - Resources are placed into columns of zones.
@@ -15,5 +16,10 @@ Better visualization of resources on the cloud.
 - Similar to the previous view, but without joining of the vSwitch names.
 
 ### View: Resource List
+![sample-resource-list-view](https://raw.githubusercontent.com/changbowen/Misc/master/aliyun-console/sample-resource-list-view.png)
+
 ### View: Bubbles
-### View: ExpressConnect
+![sample-resource-list-view](https://raw.githubusercontent.com/changbowen/Misc/master/aliyun-console/sample-bubbles-view.png)
+
+### View: VPC Connections
+![sample-resource-list-view](https://raw.githubusercontent.com/changbowen/Misc/master/aliyun-console/sample-vpc-connections-view.png)
