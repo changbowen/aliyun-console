@@ -120,8 +120,135 @@
         <option value="cn-hongkong">Hong Kong</option>
     </select>
     <input type="checkbox" name="refresh_cache" id="refresh_cache">Ignore Cache (Slow)
-    <input type="submit" id="btn_submit" value="Go" onclick="btn_submit_onclick()"/>
+    <input type="submit" id="btn_submit" value="  Go  " onclick="btn_submit_onclick()"/>
 </form>
+<form onsubmit="try { applyFilters(); } finally { return false; }">
+    <span style="margin-right: 1em">Filters</span><span id="span_counter" style="margin-right: 1em"></span>
+    <input type="button" value=" + " onclick="addFilter()">
+    <input type="submit" value="  Apply  ">
+    <div id="div_filters"></div>
+</form>
+<script>
+    let /**Map<string, Set>*/allFields = null;
+    let /**HTMLSelectElement*/sel_operator = null;
+    function addFilter() {
+        let div_filters = document.getElementById('div_filters');
+
+        let div_filter = document.createElement('div');
+        //datalist for all fields
+        if (allFields == null) {
+            allFields = getKeys([...allEcs.values(), ...allRds.values()]);
+            let dlStr = '<datalist id="dl_fields"><option value="' + [...allFields.keys()].join('"><option value="') + '"></datalist>';
+            document.body.appendChild(parseHTMLElement(dlStr));
+        }
+
+        //input that points to fields datalist
+        let input_fields = createElement('input', {'type':'text', 'list':'dl_fields'});
+        input_fields.onchange = function () {
+            let propName = this.value;
+            let /**Set*/dlContent = allFields.get(propName);
+            if (dlContent === undefined) return;
+            let dl = document.getElementById('dl_filter_' + propName);
+            if (dl == null) { //build datalist if not exist
+                let dlStr = '<datalist id="dl_filter_' + propName + '"><option value="' + [...dlContent.keys()].join('"><option value="') + '"></datalist>';
+                document.body.appendChild(parseHTMLElement(dlStr));
+            }
+            //point input to the datalist
+            if (this.nextElementSibling.list !== undefined) this.nextElementSibling.remove();
+            this.insertAdjacentElement('afterend', createElement('input', { 'type': 'text', 'list': 'dl_filter_' + propName }))
+        };
+        div_filter.appendChild(input_fields);
+
+        // input that points to filterVal datalist
+        // div_filter.createElement('input', { 'type': 'text', 'list': 'dl_filter' });
+
+        //select (logical operator)
+        if (sel_operator == null) {
+            sel_operator = document.createElement('select');
+            sel_operator.add(createElement('option', { 'value': 'and' }, { 'textContent': 'AND' }));
+            sel_operator.add(createElement('option', { 'value': 'or' }, { 'textContent': 'OR' }));
+        }
+        div_filter.appendChild(sel_operator.cloneNode(true));
+        //remove button
+        let btn_remove = createElement('input', {'type':'button', 'value':' - '});
+        btn_remove.onclick = function () {
+            let dl = document.getElementById('dl_filter_' + this.parentElement.firstElementChild.value);
+            if (dl != null) document.body.removeChild(dl);
+            this.parentElement.remove();
+        };
+        div_filter.appendChild(btn_remove);
+
+        div_filters.appendChild(div_filter);
+    }
+
+    function applyFilters() {
+        let div_filters = document.getElementById('div_filters');
+        let counter = document.getElementById('span_counter');
+        if (div_filters.children.length === 0) {
+            let all = $('.inst-box'); all.show();
+            counter.textContent = '(' + all.length + ' shown, ' + '0 hidden)';
+            return;
+        }
+
+        let result = new Map([...allEcs, ...allRds]);
+        //reset previous filter result
+        result.forEach(i => delete i._show);
+        //apply each filter
+        for (let div_filter of div_filters.children) {
+            let propName = div_filter.children[0].value;
+            let filterVal = div_filter.children[1].value;
+            let operator = div_filter.children[2].value;
+            updateFilterResult(result, propName, filterVal, operator);
+        }
+
+        let showIds = [], hideIds = [];
+        for (let pair of result.entries()) {
+            if (pair[1]._show) showIds.push(pair[0]);
+            else hideIds.push(pair[0]);
+        }
+        $("[data-instId='" + showIds.join("'],[data-instId='") + "']").show();
+        $("[data-instId='" + hideIds.join("'],[data-instId='") + "']").hide();
+
+        counter.textContent = '(' + showIds.length + ' shown, ' + hideIds.length + ' hidden)';
+    }
+
+    /**
+     * @param {Map} map
+     * @param {string} propName
+     * @param {string} filterVal
+     * @param {'and' | 'or'} operator
+     */
+    function updateFilterResult(map, propName, filterVal, operator) {
+        filterVal = filterVal.toLowerCase();
+        for (let pair of map.entries()) {
+            let inst = pair[1];
+            if (inst._show === false && operator === 'and') continue;
+            let realVal = inst[propName];
+            let show = false;
+            if (realVal !== undefined && realVal != null) {
+                switch (realVal.constructor.name) {
+                    case 'String':
+                        if (realVal.toLowerCase().includes(filterVal)) show = true;
+                        break;
+                    case 'Array':
+                        let compFunc = null;
+                        if (propName === 'tags')
+                            compFunc = tags => tags.tagValue.toLowerCase().includes(filterVal);
+                        else
+                            compFunc = obj => obj.toString().toLowerCase().includes(filterVal);
+                        if (realVal.some(compFunc)) show = true;
+                        break;
+                }
+            }
+            if (inst._show === undefined) inst._show = show;
+            else {
+                if (operator === 'and' && inst._show === true) inst._show = show;
+                else if (operator === 'or' && inst._show === false) inst._show = show;
+            }
+        }
+    }
+</script>
+
 
 <%
     String[] p_target_region = request.getParameterValues("target_region");

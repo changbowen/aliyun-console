@@ -15,6 +15,27 @@ function mapToObject(map) {
 }
 
 /**
+ * Get all keys and values of the objects in an array.
+ * @param {Array<object>} aryOfObj
+ * @return Map<string,Set>
+ */
+function getKeys(aryOfObj) {
+    return aryOfObj.reduce((/**Map*/pre, cur) => {
+        Object.keys(cur).forEach(key => {
+            let oldSet = pre.has(key) ? pre.get(key) : new Set();
+            if (key === 'tags') {
+                let /**Array<{tagKey,tagValue}>*/kvAry = cur[key];
+                kvAry.forEach(v => { if (!oldSet.has(v.tagValue)) oldSet.add(v.tagValue) });
+                // pre.set(key, oldSet.add(cur[key]));
+            }
+            else
+                pre.set(key, oldSet.add(cur[key]));
+        });
+        return pre;
+    }, new Map());
+}
+
+/**
  * Create an HTMLElement with specified tag name, attributes and property values.
  * @param {string} tag
  * @param {Object<string,string>} attributes setAttribute(key, value) will be called for each attribute.
