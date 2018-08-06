@@ -107,7 +107,10 @@
             });
             colClasses.forEach((b, i) => {
                 if (b != null) $('.dataTable tr > :nth-child('+(i+1)+')').addClass(b ? 'colgrp-odd' : 'colgrp-even');
-            })
+            });
+            //load filters
+            let filters = $.cookie('filters');
+            if (filters) unserializeFilters(filters);
         });
     </script>
 </head>
@@ -126,6 +129,7 @@
     <span style="margin-right: 1em">Filters</span><span id="span_counter" style="margin-right: 1em"></span>
     <input type="button" value=" + " onclick="addFilter()">
     <input type="submit" value="  Apply  ">
+    <input id="btn_filter_bypass" type="button" value="  Bypass  " disabled onclick="clearFilters(false)">
     <div id="div_filters"></div>
 </form>
 <script>
@@ -144,23 +148,11 @@
 
         //input that points to fields datalist
         let input_fields = createElement('input', {'type':'text', 'list':'dl_fields'});
-        input_fields.onchange = function () {
-            let propName = this.value;
-            let /**Set*/dlContent = allFields.get(propName);
-            if (dlContent === undefined) return;
-            let dl = document.getElementById('dl_filter_' + propName);
-            if (dl == null) { //build datalist if not exist
-                let dlStr = '<datalist id="dl_filter_' + propName + '"><option value="' + [...dlContent.keys()].join('"><option value="') + '"></datalist>';
-                document.body.appendChild(parseHTMLElement(dlStr));
-            }
-            //point input to the datalist
-            if (this.nextElementSibling.list !== undefined) this.nextElementSibling.remove();
-            this.insertAdjacentElement('afterend', createElement('input', { 'type': 'text', 'list': 'dl_filter_' + propName }))
-        };
+        input_fields.onchange = propNameChanged;
         div_filter.appendChild(input_fields);
 
-        // input that points to filterVal datalist
-        // div_filter.createElement('input', { 'type': 'text', 'list': 'dl_filter' });
+        //add fake input_filterVal as a placeholder
+        div_filter.createElement('input', {'type':'text', 'disabled':''});
 
         //select (logical operator)
         if (sel_operator == null) {
@@ -171,24 +163,47 @@
         div_filter.appendChild(sel_operator.cloneNode(true));
         //remove button
         let btn_remove = createElement('input', {'type':'button', 'value':' - '});
-        btn_remove.onclick = function () {
-            let dl = document.getElementById('dl_filter_' + this.parentElement.firstElementChild.value);
-            if (dl != null) document.body.removeChild(dl);
-            this.parentElement.remove();
-        };
+        btn_remove.onclick = function () { $(this.parentElement).remove(); };
         div_filter.appendChild(btn_remove);
 
         div_filters.appendChild(div_filter);
+        return div_filter;
+    }
+
+    function propNameChanged() {
+        let propName = this.value;
+        let /**Set*/dlContent = allFields.get(propName);
+        if (dlContent === undefined) return;
+
+        //remove old input together with datalist (jquery event)
+        $(this.nextElementSibling).remove();
+
+        //generate datalist and input
+        let dlId = 'dl_filter_' + propName;
+        if (document.getElementById(dlId) == null) {
+            let dlStr = '<datalist id="' + dlId + '"><option value="' + [...dlContent.keys()].join('"><option value="') + '"></datalist>';
+            document.body.appendChild(parseHTMLElement(dlStr));
+        }
+        let input_filterVal = createElement('input', { 'type': 'text', 'list': dlId });
+        $(input_filterVal).on('remove', function () { if (this.list) this.list.remove(); });//remove associated datalist with the input
+        this.insertAdjacentElement('afterend', input_filterVal);
+    }
+
+    function clearFilters(/**boolean*/removeCookie) {
+        //show all inst-box
+        let all = $('.inst-box'); all.show();
+        let counter = document.getElementById('span_counter');
+        counter.textContent = '(' + all.length + ' shown, ' + '0 hidden)';
+        //update filters cookie
+        if (removeCookie) $.removeCookie('filters');
+        //disable bypass button
+        document.getElementById('btn_filter_bypass').setAttribute('disabled', '');
     }
 
     function applyFilters() {
         let div_filters = document.getElementById('div_filters');
         let counter = document.getElementById('span_counter');
-        if (div_filters.children.length === 0) {
-            let all = $('.inst-box'); all.show();
-            counter.textContent = '(' + all.length + ' shown, ' + '0 hidden)';
-            return;
-        }
+        if (div_filters.children.length === 0) { clearFilters(true); return; }
 
         let result = new Map([...allEcs, ...allRds]);
         //reset previous filter result
@@ -210,6 +225,11 @@
         $("[data-instId='" + hideIds.join("'],[data-instId='") + "']").hide();
 
         counter.textContent = '(' + showIds.length + ' shown, ' + hideIds.length + ' hidden)';
+
+        //save filter to cookie
+        $.cookie('filters', serializeFilters());
+        //enable bypass
+        document.getElementById('btn_filter_bypass').removeAttribute('disabled');
     }
 
     /**
@@ -238,6 +258,8 @@
                             compFunc = obj => obj.toString().toLowerCase().includes(filterVal);
                         if (realVal.some(compFunc)) show = true;
                         break;
+                    case 'Number':
+                        if (Number(filterVal) === realVal) show = true;
                 }
             }
             if (inst._show === undefined) inst._show = show;
@@ -245,6 +267,34 @@
                 if (operator === 'and' && inst._show === true) inst._show = show;
                 else if (operator === 'or' && inst._show === false) inst._show = show;
             }
+        }
+    }
+
+    function serializeFilters() {
+        let filterAry = [];
+        let div_filters = document.getElementById('div_filters');
+        if (div_filters == null) return null;
+        for (let div_filter of div_filters.children) {
+            let propName = div_filter.children[0].value;
+            let filterVal = div_filter.children[1].value;
+            let operator = div_filter.children[2].value;
+            filterAry.push({ 'propName':propName, 'filterVal':filterVal, 'operator':operator });
+        }
+        return JSON.stringify(filterAry);
+    }
+
+    function unserializeFilters(filterJson) {
+        let div_filters = document.getElementById('div_filters');
+        if (div_filters == null) return;
+        $(div_filters).empty();//cannot use childNode.remove() as it will not trigger jQuery event 'remove'.
+
+        let filterAry = JSON.parse(filterJson);
+        for (let filterObj of filterAry) {
+            let div_filter = addFilter();
+            div_filter.children[0].value = filterObj.propName;
+            div_filter.children[0].dispatchEvent(new Event('change'));
+            div_filter.children[1].value = filterObj.filterVal;
+            div_filter.children[2].value = filterObj.operator;
         }
     }
 </script>

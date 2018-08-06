@@ -38,7 +38,7 @@ function getKeys(aryOfObj) {
 /**
  * Create an HTMLElement with specified tag name, attributes and property values.
  * @param {string} tag
- * @param {Object<string,string>} attributes setAttribute(key, value) will be called for each attribute.
+ * @param {Object<string,string>} attributes setAttribute(key, value) will be called for each attribute. To set attribute name only, set value to ''.
  * @param {Object<string,Object>} properties HTMLElement[key] = value will be called for each property.
  * @return {HTMLElement} The created element.
  */
@@ -99,4 +99,10 @@ HTMLElement.prototype.getParentByClass = function (className) {
  */
 function getCompareFunc(prop) {
     return (a, b) => a[prop] < b[prop] ? -1 : (a[prop] > b[prop] ? 1 : 0);
+}
+
+HTMLElement.prototype.clearChildNodes = function () {
+    while (this.lastChild) {
+        this.removeChild(this.lastChild);
+    }
 }
