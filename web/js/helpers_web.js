@@ -107,6 +107,18 @@
  */
 
 /**
+ * The Security Group object
+ * @typedef {{
+ * securityGroupId:string,
+ * description:string,
+ * securityGroupName:string,
+ * vpcId:string,
+ * creationTime:string,
+ * tags:Array<{tagKey:string, tagValue:string}>,
+ * }} SecGrp
+ */
+
+/**
  * Set cookies with the value of the elements with specified IDs.
  * Value will be read from different properties based on the type of the element.
  * @param {Array} IDs Array of strings containing the id of the elements to set cookies for.

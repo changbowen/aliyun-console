@@ -15,43 +15,22 @@ function mapToObject(map) {
 }
 
 /**
- * Get all keys and values of the objects in an array.
- * @param {Array<object>} aryOfObj
- * @return Map<string,Set>
- */
-function getKeys(aryOfObj) {
-    return aryOfObj.reduce((/**Map*/pre, cur) => {
-        Object.keys(cur).forEach(key => {
-            let oldSet = pre.has(key) ? pre.get(key) : new Set();
-            if (key === 'tags') {
-                let /**Array<{tagKey,tagValue}>*/kvAry = cur[key];
-                kvAry.forEach(v => { if (!oldSet.has(v.tagValue)) oldSet.add(v.tagValue) });
-                // pre.set(key, oldSet.add(cur[key]));
-            }
-            else
-                pre.set(key, oldSet.add(cur[key]));
-        });
-        return pre;
-    }, new Map());
-}
-
-/**
  * Create an HTMLElement with specified tag name, attributes and property values.
  * @param {string} tag
- * @param {Object<string,string>} attributes setAttribute(key, value) will be called for each attribute. To set attribute name only, set value to ''.
- * @param {Object<string,Object>} properties HTMLElement[key] = value will be called for each property.
+ * @param {Object<string,*>} attributes setAttribute(key, value) will be called for each attribute. To set attribute name only, set value to ''.
+ * @param {Object<string,*>} properties HTMLElement[key] = value will be called for each property.
  * @return {HTMLElement} The created element.
  */
 function createElement(tag, attributes = null, properties = null) {
     let ele = document.createElement(tag);
     if (attributes) {
-        for (let attr in attributes) {
-            if (attributes.hasOwnProperty(attr)) ele.setAttribute(attr, attributes[attr]);
+        for (let key of Object.keys(attributes)) {
+            ele.setAttribute(key, attributes[key] == null ? '' : attributes[key]);
         }
     }
     if (properties) {
-        for (let prop in properties) {
-            if (properties.hasOwnProperty(prop)) ele[prop] = properties[prop];
+        for (let key of Object.keys(properties)) {
+            ele[key] = properties[key];
         }
     }
     return ele;

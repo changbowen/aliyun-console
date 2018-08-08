@@ -130,10 +130,15 @@
     <input type="button" value=" + " onclick="addFilter()">
     <input type="submit" value="  Apply  ">
     <input id="btn_filter_bypass" type="button" value="  Bypass  " disabled onclick="clearFilters(false)">
+    <input id="btn_filter_revert" type="button" value="  Revert  " onclick="revertFilterResult()">
     <div id="div_filters"></div>
 </form>
+<datalist>
+    <
+</datalist>
 <script>
-    let /**Map<string, Set>*/allFields = null;
+    /**@type {Map<string, {datalistMap:Map<string, string>}>}*/
+    let allFields = null;
     let /**HTMLSelectElement*/sel_operator = null;
     function addFilter() {
         let div_filters = document.getElementById('div_filters');
@@ -141,9 +146,12 @@
         let div_filter = document.createElement('div');
         //datalist for all fields
         if (allFields == null) {
-            allFields = getKeys([...allEcs.values(), ...allRds.values()]);
-            let dlStr = '<datalist id="dl_fields"><option value="' + [...allFields.keys()].join('"><option value="') + '"></datalist>';
-            document.body.appendChild(parseHTMLElement(dlStr));
+            allFields = generateAllFields([...allEcs.values(), ...allRds.values()]);
+            let dl = createElement('datalist', {'id':'dl_fields'});
+            for (let item of [...allFields.keys()].sort()) {
+                dl.createElement('option', {'value':item});
+            }
+            document.body.appendChild(dl);
         }
 
         //input that points to fields datalist
@@ -172,8 +180,8 @@
 
     function propNameChanged() {
         let propName = this.value;
-        let /**Set*/dlContent = allFields.get(propName);
-        if (dlContent === undefined) return;
+        let fieldInfo = allFields.get(propName);
+        if (fieldInfo === undefined) return;
 
         //remove old input together with datalist (jquery event)
         $(this.nextElementSibling).remove();
@@ -181,8 +189,12 @@
         //generate datalist and input
         let dlId = 'dl_filter_' + propName;
         if (document.getElementById(dlId) == null) {
-            let dlStr = '<datalist id="' + dlId + '"><option value="' + [...dlContent.keys()].join('"><option value="') + '"></datalist>';
-            document.body.appendChild(parseHTMLElement(dlStr));
+            let dl = document.createElement('datalist'); dl.id = dlId;
+            let ary = [...fieldInfo.datalistMap.entries()].sort(_sortAryBy1Then0);
+            for (let item of ary) {
+                dl.createElement('option', {'value':item[0], 'label':item[1]});
+            }
+            document.body.appendChild(dl);
         }
         let input_filterVal = createElement('input', { 'type': 'text', 'list': dlId });
         $(input_filterVal).on('remove', function () { if (this.list) this.list.remove(); });//remove associated datalist with the input
@@ -198,6 +210,12 @@
         if (removeCookie) $.removeCookie('filters');
         //disable bypass button
         document.getElementById('btn_filter_bypass').setAttribute('disabled', '');
+    }
+
+    function revertFilterResult() {
+        let all = $('.inst-box'); all.toggle();
+        let counter = document.getElementById('span_counter');
+        counter.textContent = '(' + all.filter(':visible').length + ' shown, ' + all.filter(':hidden').length + ' hidden)';
     }
 
     function applyFilters() {
@@ -245,23 +263,8 @@
             if (inst._show === false && operator === 'and') continue;
             let realVal = inst[propName];
             let show = false;
-            if (realVal !== undefined && realVal != null) {
-                switch (realVal.constructor.name) {
-                    case 'String':
-                        if (realVal.toLowerCase().includes(filterVal)) show = true;
-                        break;
-                    case 'Array':
-                        let compFunc = null;
-                        if (propName === 'tags')
-                            compFunc = tags => tags.tagValue.toLowerCase().includes(filterVal);
-                        else
-                            compFunc = obj => obj.toString().toLowerCase().includes(filterVal);
-                        if (realVal.some(compFunc)) show = true;
-                        break;
-                    case 'Number':
-                        if (Number(filterVal) === realVal) show = true;
-                }
-            }
+            if (realVal !== undefined && realVal != null)
+                show = _findValue(realVal, filterVal);
             if (inst._show === undefined) inst._show = show;
             else {
                 if (operator === 'and' && inst._show === true) inst._show = show;
@@ -269,6 +272,85 @@
             }
         }
     }
+
+    function _findValue(obj, value) {
+        let show = false;
+        switch (obj.constructor.name) {
+            case 'String':
+                if (obj.toLowerCase().includes(value)) show = true;
+                break;
+            case 'Number':
+                if (Number(value) === obj) show = true;
+                break;
+            case 'Array':
+                for (let child of obj) {
+                    show = _findValue(child, value);
+                    if (show) break;
+                }
+                break;
+            case 'Object':
+                for (let child of Object.values(obj)) {
+                    show = _findValue(child, value);
+                    if (show) break;
+                }
+                break;
+        }
+        return show;
+    }
+
+    function _sortAryBy1Then0(a, b) {
+        if (a[1] > b[1]) return 1;
+        if (a[1] < b[1]) return -1;
+        if (a[0] > b[0]) return 1;
+        if (a[0] < b[0]) return -1;
+        return 0;
+    }
+
+    /**
+     * @param {Array<object>} instAry
+     * @return {Map<string, {datalistMap:Map<string, string>}>}
+     */
+    function generateAllFields(instAry) {
+        /**@type {Map<string, {datalistMap:Map<string, string>}>}*/
+        let map = new Map();
+        for (let inst of instAry) {
+            for (let key of Object.keys(inst)) {
+                if (!map.has(key)) map.set(key, {'datalistMap':new Map()});
+                let fieldInfo = map.get(key);
+                let oldMap = fieldInfo.datalistMap;
+                switch (key) {
+                    case 'tags':
+                        for (let tag of inst[key]) {
+                            oldMap.set(tag.tagValue, tag.tagKey);
+                        }
+                        break;
+                    case 'vpcAttributes':
+                        let vpcAttr = inst[key];
+                        let vpc = allVpc.get(vpcAttr.vpcId);
+                        let vsw = allVsw.get(vpcAttr.vSwitchId);
+                        oldMap.set(vpc.vpcId, 'VPC: ' + vpc.vpcName);
+                        oldMap.set(vsw.vSwitchId, 'vSwitch: ' + vsw.vSwitchName + ' ('+ vpc.vpcName +')');
+                        break;
+                    case 'securityGroupIds':
+                        for (let sgId of inst[key]) {
+                            let sg = allSG.get(sgId);
+                            oldMap.set(sgId, sg.securityGroupName + ' (' + allVpc.get(sg.vpcId).vpcName + ')');
+                        }
+                        break;
+                    case 'networkInterfaces':
+                        for (let ni of inst[key]) {
+                            oldMap.set(ni.primaryIpAddress, null);
+                        }
+                        break;
+                    default:
+                        oldMap.set(inst[key].toString(), null);
+                        break;
+                }
+            }
+        }
+        return map;
+    }
+
 
     function serializeFilters() {
         let filterAry = [];
@@ -310,12 +392,12 @@
     let region = $.cookie('target_region');
     let cache = $.cookie('refresh_cache') !== 'true';//cannot use ! to invert boolean as cookies are stored as strings
 
-    let /**Map*/ allVpc = getInstances(region, 'Vpc', null, cache, null, 'map');//.sort((a, b) => Date.parse(a.creationTime) - Date.parse(b.creationTime))
-    let /**Map*/ allVsw = getInstances(region, 'Vswitch', null, cache, null, 'map');
-    let /**Map*/ allEcs = getInstances(region, 'Ecs', null, cache, null, 'map');
-    let /**Map*/ allSG = getInstances(region, 'SecurityGroup', null, cache, null, 'map');
+    let /**Map<string,VPC>*/ allVpc = getInstances(region, 'Vpc', null, cache, null, 'map');//.sort((a, b) => Date.parse(a.creationTime) - Date.parse(b.creationTime))
+    let /**Map<string,vSwitch>*/ allVsw = getInstances(region, 'Vswitch', null, cache, null, 'map');
+    let /**Map<string,ECS>*/ allEcs = getInstances(region, 'Ecs', null, cache, null, 'map');
+    let /**Map<string,SecGrp>*/ allSG = getInstances(region, 'SecurityGroup', null, cache, null, 'map');
     let /**Array*/ allDisk = getInstances(region, 'Disk', null, cache, null);
-    let /**Map*/ allRds = getInstances(region, 'Rds', null, cache, null, 'map');
+    let /**Map<string,RDS>*/ allRds = getInstances(region, 'Rds', null, cache, null, 'map');
 
     let allEcsDisk = allDisk.reduce((pre, cur) =>
         pre.has(cur.instanceId) ? (pre.get(cur.instanceId).push(cur), pre) : pre.set(cur.instanceId, [cur]), new Map());
